@@ -23,7 +23,7 @@
   #enter-btn{background:linear-gradient(135deg,var(--deep-sand),var(--ochre));color:var(--cream);border:1px solid var(--gold);padding:.9rem 3rem;font-family:'Cinzel',serif;font-size:1rem;letter-spacing:.2em;cursor:pointer;transition:all .3s;text-transform:uppercase;}
   #enter-btn:hover{background:linear-gradient(135deg,var(--ochre),var(--gold));color:var(--dark-brown);box-shadow:0 0 30px rgba(232,198,106,.4);transform:translateY(-2px);}
   #game-container{display:none;position:relative;width:100vw;height:100vh;}
-  canvas:not(#minimap){display:block;width:100%;height:100%;cursor:crosshair;}
+  canvas:not(#minimap){display:block;width:100%;height:100%;cursor:crosshair;image-rendering:pixelated;image-rendering:crisp-edges;}
   #hud{position:absolute;top:0;left:0;right:0;padding:1rem 1.5rem;display:flex;justify-content:space-between;pointer-events:none;}
   #room-name{font-family:'Cinzel',serif;font-size:1.1rem;color:var(--gold);text-shadow:0 2px 8px rgba(0,0,0,.8);letter-spacing:.1em;}
   #room-subtitle{font-family:'Crimson Text',serif;font-size:.9rem;color:var(--sand);font-style:italic;margin-top:.2rem;text-shadow:0 2px 6px rgba(0,0,0,.8);}
@@ -931,8 +931,12 @@ const CHALLENGES = {
 // ══════════════════════════════════════════════════════════
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
+const RENDER_SCALE = 0.5; // Render at 50% resolution for performance; raise toward 1.0 for more clarity
 let W=0,H=0;
-function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+function resize(){
+  W = canvas.width = Math.floor(window.innerWidth * RENDER_SCALE);
+  H = canvas.height = Math.floor(window.innerHeight * RENDER_SCALE);
+}
 resize(); window.addEventListener('resize',resize);
 
 // ── AUTOSAVE ────────────────────────────────────────────────
@@ -4165,7 +4169,23 @@ function move(dt){
 // LOOP
 // ══════════════════════════════════════════════════════════
 let last=0;
-function loop(ts){ const dt=Math.min((ts-last)/1000,.05); last=ts; move(dt); render(); updateHUD(); requestAnimationFrame(loop); }
+let lastState = { x:0, z:0, angle:0, room:'' };
+const FPS_LIMIT = 30;
+const FRAME_MIN_TIME = 1000 / FPS_LIMIT;
+
+function loop(ts){
+  const elapsed = ts - last;
+  if(elapsed < FRAME_MIN_TIME){ requestAnimationFrame(loop); return; }
+  const dt = Math.min(elapsed/1000, .05);
+  last = ts;
+  move(dt);
+  const hasMoved = P.x!==lastState.x || P.z!==lastState.z || P.angle!==lastState.angle || P.room!==lastState.room;
+  if(hasMoved){
+    render(); updateHUD();
+    lastState = { x:P.x, z:P.z, angle:P.angle, room:P.room };
+  }
+  requestAnimationFrame(loop);
+}
 requestAnimationFrame(ts=>{ last=ts; loop(ts); });
 
 // ══════════════════════════════════════════════════════════
